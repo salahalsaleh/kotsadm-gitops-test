@@ -1,1 +1,1199 @@
-asdasdasdasdasd
+apiVersion: v1
+data:
+  config.yml: |-
+    # While a lot of configuration in Sentry can be changed via the UI, for all
+    # new-style config (as of 8.0) you can also declare values here in this file
+    # to enforce defaults or to ensure they cannot be changed via the UI. For more
+    # information see the Sentry documentation.
+
+    ###############
+    # Mail Server #
+    ###############
+
+    # mail.backend: 'smtp'  # Use dummy if you want to disable email entirely
+    # mail.host: 'localhost'
+    # mail.port: 25
+    # mail.username: ''
+    # mail.password: ''
+    # mail.use-tls: false
+    # The email address to send on behalf of
+    # mail.from: 'root@localhost'
+
+    # If you'd like to configure email replies, enable this.
+    # mail.enable-replies: false
+
+    # When email-replies are enabled, this value is used in the Reply-To header
+    # mail.reply-hostname: ''
+
+    # If you're using mailgun for inbound mail, set your API key and configure a
+    # route to forward to /api/hooks/mailgun/inbound/
+    # mail.mailgun-api-key: ''
+
+    ###################
+    # System Settings #
+    ###################
+
+    # If this file ever becomes compromised, it's important to regenerate your a new key
+    # Changing this value will result in all current sessions being invalidated.
+    # A new key can be generated with `$ sentry config generate-secret-key`
+    # system.secret-key: 'changeme'
+
+    # The ``redis.clusters`` setting is used, unsurprisingly, to configure Redis
+    # clusters. These clusters can be then referred to by name when configuring
+    # backends such as the cache, digests, or TSDB backend.
+    # redis.clusters:
+    #   default:
+    #     hosts:
+    #       0:
+    #         host: 127.0.0.1
+    #         port: 6379
+
+    ################
+    # File storage #
+    ################
+
+    # Uploaded media uses these `filestore` settings. The available
+    # backends are either `filesystem` or `s3`.
+
+    filestore.backend: 'filesystem'
+    filestore.options:
+      location: '/var/lib/sentry/files'
+  sentry.conf.py: |-
+    # This file is just Python, with a touch of Django which means
+    # you can inherit and tweak settings to your hearts content.
+
+    # For Docker, the following environment variables are supported:
+    #  SENTRY_POSTGRES_HOST
+    #  SENTRY_POSTGRES_PORT
+    #  SENTRY_DB_NAME
+    #  SENTRY_DB_USER
+    #  SENTRY_DB_PASSWORD
+    #  SENTRY_RABBITMQ_HOST
+    #  SENTRY_RABBITMQ_USERNAME
+    #  SENTRY_RABBITMQ_PASSWORD
+    #  SENTRY_RABBITMQ_VHOST
+    #  SENTRY_REDIS_HOST
+    #  SENTRY_REDIS_PASSWORD
+    #  SENTRY_REDIS_PORT
+    #  SENTRY_REDIS_DB
+    #  SENTRY_MEMCACHED_HOST
+    #  SENTRY_MEMCACHED_PORT
+    #  SENTRY_FILESTORE_DIR
+    #  SENTRY_SERVER_EMAIL
+    #  SENTRY_EMAIL_HOST
+    #  SENTRY_EMAIL_PORT
+    #  SENTRY_EMAIL_USER
+    #  SENTRY_EMAIL_PASSWORD
+    #  SENTRY_EMAIL_USE_TLS
+    #  SENTRY_ENABLE_EMAIL_REPLIES
+    #  SENTRY_SMTP_HOSTNAME
+    #  SENTRY_MAILGUN_API_KEY
+    #  SENTRY_SINGLE_ORGANIZATION
+    #  SENTRY_SECRET_KEY
+    #  GITHUB_APP_ID
+    #  GITHUB_API_SECRET
+    #  BITBUCKET_CONSUMER_KEY
+    #  BITBUCKET_CONSUMER_SECRET
+    from sentry.conf.server import *  # NOQA
+
+    import os
+    import os.path
+
+    CONF_ROOT = os.path.dirname(__file__)
+
+    postgres = env('SENTRY_POSTGRES_HOST') or (env('POSTGRES_PORT_5432_TCP_ADDR') and 'postgres')
+    if postgres:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'sentry.db.postgres',
+                'NAME': (
+                    env('SENTRY_DB_NAME')
+                    or env('POSTGRES_ENV_POSTGRES_USER')
+                    or 'postgres'
+                ),
+                'USER': (
+                    env('SENTRY_DB_USER')
+                    or env('POSTGRES_ENV_POSTGRES_USER')
+                    or 'postgres'
+                ),
+                'PASSWORD': (
+                    env('SENTRY_DB_PASSWORD')
+                    or env('POSTGRES_ENV_POSTGRES_PASSWORD')
+                    or ''
+                ),
+                'HOST': postgres,
+                'PORT': (
+                    env('SENTRY_POSTGRES_PORT')
+                    or ''
+                ),
+                'OPTIONS': {
+                    'autocommit': True,
+                },
+            },
+        }
+
+    # You should not change this setting after your database has been created
+    # unless you have altered all schemas first
+    SENTRY_USE_BIG_INTS = True
+
+    # If you're expecting any kind of real traffic on Sentry, we highly recommend
+    # configuring the CACHES and Redis settings
+
+    ###########
+    # General #
+    ###########
+
+    # Instruct Sentry that this install intends to be run by a single organization
+    # and thus various UI optimizations should be enabled.
+    SENTRY_SINGLE_ORGANIZATION = env('SENTRY_SINGLE_ORGANIZATION', True)
+
+    #########
+    # Redis #
+    #########
+
+    # Generic Redis configuration used as defaults for various things including:
+    # Buffers, Quotas, TSDB
+
+    redis = env('SENTRY_REDIS_HOST') or (env('REDIS_PORT_6379_TCP_ADDR') and 'redis')
+    if not redis:
+        raise Exception('Error: REDIS_PORT_6379_TCP_ADDR (or SENTRY_REDIS_HOST) is undefined, did you forget to `--link` a redis container?')
+
+    redis_password = env('SENTRY_REDIS_PASSWORD') or ''
+    redis_port = env('SENTRY_REDIS_PORT') or '6379'
+    redis_db = env('SENTRY_REDIS_DB') or '0'
+
+    SENTRY_OPTIONS.update({
+        'redis.clusters': {
+            'default': {
+                'hosts': {
+                    0: {
+                        'host': redis,
+                        'password': redis_password,
+                        'port': redis_port,
+                        'db': redis_db,
+                    },
+                },
+            },
+        },
+    })
+
+    #########
+    # Cache #
+    #########
+
+    # Sentry currently utilizes two separate mechanisms. While CACHES is not a
+    # requirement, it will optimize several high throughput patterns.
+
+    memcached = env('SENTRY_MEMCACHED_HOST') or (env('MEMCACHED_PORT_11211_TCP_ADDR') and 'memcached')
+    if memcached:
+        memcached_port = (
+            env('SENTRY_MEMCACHED_PORT')
+            or '11211'
+        )
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+                'LOCATION': [memcached + ':' + memcached_port],
+                'TIMEOUT': 3600,
+            }
+        }
+
+    # A primary cache is required for things such as processing events
+    SENTRY_CACHE = 'sentry.cache.redis.RedisCache'
+
+    #########
+    # Queue #
+    #########
+
+    # See https://docs.getsentry.com/on-premise/server/queue/ for more
+    # information on configuring your queue broker and workers. Sentry relies
+    # on a Python framework called Celery to manage queues.
+
+    rabbitmq = env('SENTRY_RABBITMQ_HOST') or (env('RABBITMQ_PORT_5672_TCP_ADDR') and 'rabbitmq')
+
+    if rabbitmq:
+        BROKER_URL = (
+            'amqp://' + (
+                env('SENTRY_RABBITMQ_USERNAME')
+                or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_USER')
+                or 'guest'
+            ) + ':' + (
+                env('SENTRY_RABBITMQ_PASSWORD')
+                or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_PASS')
+                or 'guest'
+            ) + '@' + rabbitmq + '/' + (
+                env('SENTRY_RABBITMQ_VHOST')
+                or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_VHOST')
+                or '/'
+            )
+        )
+    else:
+        BROKER_URL = 'redis://:' + redis_password + '@' + redis + ':' + redis_port + '/' + redis_db
+
+
+    ###############
+    # Rate Limits #
+    ###############
+
+    # Rate limits apply to notification handlers and are enforced per-project
+    # automatically.
+
+    SENTRY_RATELIMITER = 'sentry.ratelimits.redis.RedisRateLimiter'
+
+    ##################
+    # Update Buffers #
+    ##################
+
+    # Buffers (combined with queueing) act as an intermediate layer between the
+    # database and the storage API. They will greatly improve efficiency on large
+    # numbers of the same events being sent to the API in a short amount of time.
+    # (read: if you send any kind of real data to Sentry, you should enable buffers)
+
+    SENTRY_BUFFER = 'sentry.buffer.redis.RedisBuffer'
+
+    ##########
+    # Quotas #
+    ##########
+
+    # Quotas allow you to rate limit individual projects or the Sentry install as
+    # a whole.
+
+    SENTRY_QUOTAS = 'sentry.quotas.redis.RedisQuota'
+
+    ########
+    # TSDB #
+    ########
+
+    # The TSDB is used for building charts as well as making things like per-rate
+    # alerts possible.
+
+    SENTRY_TSDB = 'sentry.tsdb.redis.RedisTSDB'
+
+    ###########
+    # Digests #
+    ###########
+
+    # The digest backend powers notification summaries.
+
+    SENTRY_DIGESTS = 'sentry.digests.backends.redis.RedisBackend'
+
+    ##############
+    # Web Server #
+    ##############
+
+    # If you're using a reverse SSL proxy, you should enable the X-Forwarded-Proto
+    # header and set `SENTRY_USE_SSL=1`
+
+    if env('SENTRY_USE_SSL', False):
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+        SESSION_COOKIE_SECURE = True
+        CSRF_COOKIE_SECURE = True
+        SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+
+    SENTRY_WEB_HOST = '0.0.0.0'
+    SENTRY_WEB_PORT = 9000
+    SENTRY_WEB_OPTIONS = {
+        # 'workers': 3,  # the number of web workers
+    }
+
+    ###############
+    # Mail Server #
+    ###############
+
+
+    email = env('SENTRY_EMAIL_HOST') or (env('SMTP_PORT_25_TCP_ADDR') and 'smtp')
+    if email:
+        SENTRY_OPTIONS['mail.backend'] = 'smtp'
+        SENTRY_OPTIONS['mail.host'] = email
+        SENTRY_OPTIONS['mail.password'] = env('SENTRY_EMAIL_PASSWORD') or ''
+        SENTRY_OPTIONS['mail.username'] = env('SENTRY_EMAIL_USER') or ''
+        SENTRY_OPTIONS['mail.port'] = int(env('SENTRY_EMAIL_PORT') or 25)
+        SENTRY_OPTIONS['mail.use-tls'] = env('SENTRY_EMAIL_USE_TLS', False)
+    else:
+        SENTRY_OPTIONS['mail.backend'] = 'dummy'
+
+    # The email address to send on behalf of
+    SENTRY_OPTIONS['mail.from'] = env('SENTRY_SERVER_EMAIL') or 'root@localhost'
+
+    # If you're using mailgun for inbound mail, set your API key and configure a
+    # route to forward to /api/hooks/mailgun/inbound/
+    SENTRY_OPTIONS['mail.mailgun-api-key'] = env('SENTRY_MAILGUN_API_KEY') or ''
+
+    # If you specify a MAILGUN_API_KEY, you definitely want EMAIL_REPLIES
+    if SENTRY_OPTIONS['mail.mailgun-api-key']:
+        SENTRY_OPTIONS['mail.enable-replies'] = True
+    else:
+        SENTRY_OPTIONS['mail.enable-replies'] = env('SENTRY_ENABLE_EMAIL_REPLIES', False)
+
+    if SENTRY_OPTIONS['mail.enable-replies']:
+        SENTRY_OPTIONS['mail.reply-hostname'] = env('SENTRY_SMTP_HOSTNAME') or ''
+
+    # If this value ever becomes compromised, it's important to regenerate your
+    # SENTRY_SECRET_KEY. Changing this value will result in all current sessions
+    # being invalidated.
+    secret_key = env('SENTRY_SECRET_KEY')
+    if not secret_key:
+        raise Exception('Error: SENTRY_SECRET_KEY is undefined, run `generate-secret-key` and set to -e SENTRY_SECRET_KEY')
+
+    if 'SENTRY_RUNNING_UWSGI' not in os.environ and len(secret_key) < 32:
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        print('!!                    CAUTION                       !!')
+        print('!! Your SENTRY_SECRET_KEY is potentially insecure.  !!')
+        print('!!    We recommend at least 32 characters long.     !!')
+        print('!!     Regenerate with `generate-secret-key`.       !!')
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+
+    SENTRY_OPTIONS['system.secret-key'] = secret_key
+
+    if 'GITHUB_APP_ID' in os.environ:
+        GITHUB_EXTENDED_PERMISSIONS = ['repo']
+        GITHUB_APP_ID = env('GITHUB_APP_ID')
+        GITHUB_API_SECRET = env('GITHUB_API_SECRET')
+
+    if 'BITBUCKET_CONSUMER_KEY' in os.environ:
+        BITBUCKET_CONSUMER_KEY = env('BITBUCKET_CONSUMER_KEY')
+        BITBUCKET_CONSUMER_SECRET = env('BITBUCKET_CONSUMER_SECRET')
+kind: ConfigMap
+metadata:
+  labels:
+    app: sentry
+  name: sentry
+---
+apiVersion: v1
+data:
+  postgres-password: bDhoVlBfZUtQTVhxSnpzVW41RTdGT0xlWEE4NkNyTTA=
+kind: Secret
+metadata:
+  labels:
+    app: postgresql
+  name: sentry-postgresql
+type: Opaque
+---
+apiVersion: v1
+data:
+  redis-password: TmVDS3J6cWc4aw==
+kind: Secret
+metadata:
+  labels:
+    app: redis
+  name: sentry-redis
+type: Opaque
+---
+apiVersion: v1
+data:
+  sentry-secret: eU1LejE1TTdPYzl0bWlrbVl1RGJkNHd3MkFjY0MyRXBDb2E0Uk9iXw==
+  smtp-password: ""
+  user-password: ""
+kind: Secret
+metadata:
+  labels:
+    app: sentry
+  name: sentry
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: example
+    component: nginx
+  name: example-nginx
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: example
+    component: nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: postgresql
+  name: sentry-postgresql
+spec:
+  ports:
+  - name: postgresql
+    port: 5432
+    targetPort: postgresql
+  selector:
+    app: postgresql
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+  name: sentry-redis-master
+spec:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+  selector:
+    app: redis
+    role: master
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+  name: sentry-redis-slave
+spec:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+  selector:
+    app: redis
+    role: slave
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: sentry
+  name: sentry
+spec:
+  ports:
+  - name: sentry
+    port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: sentry
+    role: web
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: example
+    component: nginx
+  name: example-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example
+      component: nginx
+  template:
+    metadata:
+      labels:
+        app: example
+        component: nginx
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: example-config
+        image: nginx
+        name: nginx
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sentry-cron
+  name: sentry-cron
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentry-cron
+  template:
+    metadata:
+      labels:
+        app: sentry-cron
+    spec:
+      containers:
+      - args:
+        - run
+        - cron
+        env:
+        - name: SENTRY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: sentry-secret
+              name: sentry
+        - name: SENTRY_DB_USER
+          value: sentry
+        - name: SENTRY_DB_NAME
+          value: sentry
+        - name: SENTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: SENTRY_POSTGRES_HOST
+          value: sentry-postgresql
+        - name: SENTRY_POSTGRES_PORT
+          value: "5432"
+        - name: SENTRY_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: SENTRY_REDIS_HOST
+          value: sentry-redis-master
+        - name: SENTRY_REDIS_PORT
+          value: "6379"
+        - name: SENTRY_EMAIL_HOST
+          value: ""
+        - name: SENTRY_EMAIL_PORT
+          value: ""
+        - name: SENTRY_EMAIL_USER
+          value: ""
+        - name: SENTRY_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: smtp-password
+              name: sentry
+        - name: SENTRY_EMAIL_USE_TLS
+          value: "false"
+        - name: SENTRY_SERVER_EMAIL
+          value: sentry@sentry.local
+        image: sentry:9.1.1
+        imagePullPolicy: IfNotPresent
+        name: sentry-cron
+        ports:
+        - containerPort: 9000
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /etc/sentry
+          name: config
+          readOnly: true
+        - mountPath: /var/lib/sentry/files
+          name: sentry-data
+      volumes:
+      - configMap:
+          name: sentry
+        name: config
+      - emptyDir: {}
+        name: sentry-data
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: postgresql
+  name: sentry-postgresql
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - args: null
+        env:
+        - name: POSTGRES_USER
+          value: sentry
+        - name: PGUSER
+          value: sentry
+        - name: POSTGRES_DB
+          value: sentry
+        - name: POSTGRES_INITDB_ARGS
+          value: ""
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: postgres:9.6
+        imagePullPolicy: ""
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready --host $POD_IP
+          failureThreshold: 6
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+        name: sentry-postgresql
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready --host $POD_IP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data/pgdata
+          name: data
+          subPath: postgresql-db
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: sentry-postgresql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+  name: sentry-redis-slave
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: slave
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: slave
+    spec:
+      containers:
+      - env:
+        - name: REDIS_REPLICATION_MODE
+          value: slave
+        - name: REDIS_MASTER_HOST
+          value: sentry-redis-master
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_MASTER_PORT_NUMBER
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: REDIS_MASTER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: REDIS_DISABLE_COMMANDS
+          value: FLUSHDB,FLUSHALL
+        image: docker.io/bitnami/redis:4.0.11-debian-9
+        imagePullPolicy: Always
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          failureThreshold: 5
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: sentry-redis
+        ports:
+        - containerPort: 6379
+          name: redis
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          failureThreshold: 5
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+      serviceAccountName: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sentry
+  name: sentry-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentry
+  template:
+    metadata:
+      labels:
+        app: sentry
+        role: web
+    spec:
+      containers:
+      - env:
+        - name: SENTRY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: sentry-secret
+              name: sentry
+        - name: SENTRY_DB_USER
+          value: sentry
+        - name: SENTRY_DB_NAME
+          value: sentry
+        - name: SENTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: SENTRY_POSTGRES_HOST
+          value: sentry-postgresql
+        - name: SENTRY_POSTGRES_PORT
+          value: "5432"
+        - name: SENTRY_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: SENTRY_REDIS_HOST
+          value: sentry-redis-master
+        - name: SENTRY_REDIS_PORT
+          value: "6379"
+        - name: SENTRY_EMAIL_HOST
+          value: ""
+        - name: SENTRY_EMAIL_PORT
+          value: ""
+        - name: SENTRY_EMAIL_USER
+          value: ""
+        - name: SENTRY_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: smtp-password
+              name: sentry
+        - name: SENTRY_EMAIL_USE_TLS
+          value: "false"
+        - name: SENTRY_SERVER_EMAIL
+          value: sentry@sentry.local
+        - name: GITHUB_APP_ID
+          value: ""
+        - name: GITHUB_API_SECRET
+          value: ""
+        image: sentry:9.1.1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /_health/
+            port: 9000
+            scheme: HTTP
+          initialDelaySeconds: 50
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        name: sentry-web
+        ports:
+        - containerPort: 9000
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /_health/
+            port: 9000
+            scheme: HTTP
+          initialDelaySeconds: 50
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 500Mi
+          requests:
+            cpu: 300m
+            memory: 300Mi
+        volumeMounts:
+        - mountPath: /etc/sentry
+          name: config
+          readOnly: true
+        - mountPath: /var/lib/sentry/files
+          name: sentry-data
+      volumes:
+      - configMap:
+          name: sentry
+        name: config
+      - name: sentry-data
+        persistentVolumeClaim:
+          claimName: sentry
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sentry
+  name: sentry-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sentry-worker
+  template:
+    metadata:
+      labels:
+        app: sentry
+        role: worker
+    spec:
+      containers:
+      - args:
+        - run
+        - worker
+        env:
+        - name: SENTRY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: sentry-secret
+              name: sentry
+        - name: SENTRY_DB_USER
+          value: sentry
+        - name: SENTRY_DB_NAME
+          value: sentry
+        - name: SENTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: SENTRY_POSTGRES_HOST
+          value: sentry-postgresql
+        - name: SENTRY_POSTGRES_PORT
+          value: "5432"
+        - name: SENTRY_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: SENTRY_REDIS_HOST
+          value: sentry-redis-master
+        - name: SENTRY_REDIS_PORT
+          value: "6379"
+        - name: SENTRY_EMAIL_HOST
+          value: ""
+        - name: SENTRY_EMAIL_PORT
+          value: ""
+        - name: SENTRY_EMAIL_USER
+          value: ""
+        - name: SENTRY_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: smtp-password
+              name: sentry
+        - name: SENTRY_EMAIL_USE_TLS
+          value: "false"
+        - name: SENTRY_SERVER_EMAIL
+          value: sentry@sentry.local
+        image: sentry:9.1.1
+        imagePullPolicy: IfNotPresent
+        name: sentry-workers
+        ports:
+        - containerPort: 9000
+        resources:
+          limits:
+            cpu: 300m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /etc/sentry
+          name: config
+          readOnly: true
+        - mountPath: /var/lib/sentry/files
+          name: sentry-data
+      volumes:
+      - configMap:
+          name: sentry
+        name: config
+      - emptyDir: {}
+        name: sentry-data
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: redis
+  name: sentry-redis-master
+spec:
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+  serviceName: redis-master
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: master
+    spec:
+      containers:
+      - env:
+        - name: REDIS_REPLICATION_MODE
+          value: master
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: REDIS_DISABLE_COMMANDS
+          value: FLUSHDB,FLUSHALL
+        image: docker.io/bitnami/redis:4.0.11-debian-9
+        imagePullPolicy: Always
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          failureThreshold: 5
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: sentry-redis
+        ports:
+        - containerPort: 6379
+          name: redis
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          failureThreshold: 5
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /bitnami/redis/data
+          name: redis-data
+          subPath: null
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+      serviceAccountName: default
+      volumes: null
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app: redis
+        component: master
+      name: redis-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 8Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: sentry
+  name: sentry-db-init
+spec:
+  template:
+    metadata:
+      labels:
+        app: sentry
+      name: sentry-db-init
+    spec:
+      containers:
+      - command:
+        - sentry
+        - upgrade
+        - --noinput
+        env:
+        - name: SENTRY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: sentry-secret
+              name: sentry
+        - name: SENTRY_DB_USER
+          value: sentry
+        - name: SENTRY_DB_NAME
+          value: sentry
+        - name: SENTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: SENTRY_POSTGRES_HOST
+          value: sentry-postgresql
+        - name: SENTRY_POSTGRES_PORT
+          value: "5432"
+        - name: SENTRY_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: SENTRY_REDIS_HOST
+          value: sentry-redis-master
+        - name: SENTRY_REDIS_PORT
+          value: "6379"
+        - name: SENTRY_EMAIL_HOST
+          value: ""
+        - name: SENTRY_EMAIL_PORT
+          value: ""
+        - name: SENTRY_EMAIL_USER
+          value: ""
+        - name: SENTRY_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: smtp-password
+              name: sentry
+        - name: SENTRY_EMAIL_USE_TLS
+          value: "false"
+        - name: SENTRY_SERVER_EMAIL
+          value: sentry@sentry.local
+        image: sentry:9.1.1
+        name: db-init-job
+        volumeMounts:
+        - mountPath: /etc/sentry
+          name: config
+          readOnly: true
+      restartPolicy: Never
+      volumes:
+      - configMap:
+          name: sentry
+        name: config
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: sentry
+  name: sentry-user-create
+spec:
+  template:
+    metadata:
+      labels:
+        app: sentry
+      name: sentry-user-create
+    spec:
+      containers:
+      - command:
+        - sentry
+        - createuser
+        - --no-input
+        - --email
+        - $(SENTRY_ADMIN_USERNAME)
+        - --superuser
+        - --password
+        - $(SENTRY_USER_PASSWORD)
+        env:
+        - name: SENTRY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: sentry-secret
+              name: sentry
+        - name: SENTRY_DB_USER
+          value: sentry
+        - name: SENTRY_DB_NAME
+          value: sentry
+        - name: SENTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: sentry-postgresql
+        - name: SENTRY_POSTGRES_HOST
+          value: sentry-postgresql
+        - name: SENTRY_POSTGRES_PORT
+          value: "5432"
+        - name: SENTRY_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: redis-password
+              name: sentry-redis
+        - name: SENTRY_REDIS_HOST
+          value: sentry-redis-master
+        - name: SENTRY_REDIS_PORT
+          value: "6379"
+        - name: SENTRY_EMAIL_HOST
+          value: ""
+        - name: SENTRY_EMAIL_PORT
+          value: ""
+        - name: SENTRY_EMAIL_USER
+          value: ""
+        - name: SENTRY_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: smtp-password
+              name: sentry
+        - name: SENTRY_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: user-password
+              name: sentry
+        - name: SENTRY_ADMIN_USERNAME
+          value: ""
+        - name: SENTRY_EMAIL_USE_TLS
+          value: "false"
+        - name: SENTRY_SERVER_EMAIL
+          value: sentry@sentry.local
+        image: sentry:9.1.1
+        name: user-create-job
+        volumeMounts:
+        - mountPath: /etc/sentry
+          name: config
+          readOnly: true
+      restartPolicy: Never
+      volumes:
+      - configMap:
+          name: sentry
+        name: config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: postgresql
+  name: sentry-postgresql
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: sentry
+  name: sentry
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
