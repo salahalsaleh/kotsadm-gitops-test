@@ -476,7 +476,7 @@ metadata:
   labels:
     app: example
     component: nginx
-    name: test-label
+    name: test-lab
   name: example-nginx
 spec:
   replicas: 1
