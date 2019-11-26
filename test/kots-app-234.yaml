@@ -361,7 +361,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  postgres-password: bDhoVlBfZUtQTVhxSnpzVW41RTdGT0xlWEE4NkNyTTA=
+  postgres-password: N3huRDZzYys3RGx0UWdXalFQR0t2eUM5Q1ZVPQ==
 kind: Secret
 metadata:
   labels:
@@ -383,7 +383,7 @@ apiVersion: v1
 data:
   sentry-secret: eU1LejE1TTdPYzl0bWlrbVl1RGJkNHd3MkFjY0MyRXBDb2E0Uk9iXw==
   smtp-password: ""
-  user-password: ""
+  user-password: N3huRDZzYys3RGx0UWdXalFQR0t2eUM5Q1ZVPQ==
 kind: Secret
 metadata:
   labels:
@@ -476,6 +476,7 @@ metadata:
   labels:
     app: example
     component: nginx
+    name: test-lab
   name: example-nginx
 spec:
   replicas: 1
