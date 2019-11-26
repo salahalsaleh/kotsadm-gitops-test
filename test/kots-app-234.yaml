@@ -361,7 +361,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  postgres-password: UW1KUUZ1Q1J5R2hVX2NnT1Z1bEV6emE5NW1UbFNtTjc=
+  postgres-password: TVF3Tm9wd0xOYTIxVHc2Yjk3Z2p1UUJoV2QzODY5VXc=
 kind: Secret
 metadata:
   labels:
@@ -381,7 +381,7 @@ type: Opaque
 ---
 apiVersion: v1
 data:
-  sentry-secret: SlAyM1JEYWozcnVvVFVRd3F5QUEyMWFvSW5ONE8yQ2gxbG55a2Rzdg==
+  sentry-secret: T0JxTHMydlh3emcxU3VhazIzQldpMDdmOXl5Qml0YzRTa0VTMDdRbQ==
   smtp-password: ""
   user-password: ""
 kind: Secret
