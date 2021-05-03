@@ -125,7 +125,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  redis-password: bEQwQkZhbFpEVg==
+  redis-password: MXJoODBicnJjcA==
 kind: Secret
 metadata:
   annotations:
@@ -276,7 +276,7 @@ spec:
       annotations:
         checksum/configmap: 08f8687a7906345395636534dbda21b5591653f5ca44721e7bed6e313b2f338f
         checksum/health: ad01b9f6161710faa2508c6f44edc642c5d9cc9f9f26dabf7cc0f5601e34c5b5
-        checksum/secret: b930d546d75bf1bcc66154274d8d5814076d91ca45662bf80de5fd4d00c52250
+        checksum/secret: 6f1c4b5d0b935553fa6855ee625badadfac010dce4cc8e3412e0dbb10a0bd240
         kots.io/app-slug: default-kots-app-4
       labels:
         app: redis
@@ -414,7 +414,7 @@ spec:
       annotations:
         checksum/configmap: 08f8687a7906345395636534dbda21b5591653f5ca44721e7bed6e313b2f338f
         checksum/health: ad01b9f6161710faa2508c6f44edc642c5d9cc9f9f26dabf7cc0f5601e34c5b5
-        checksum/secret: 8b973365c561c82552a949fe2e29753c801a47a21fd7f200880a867f001d1116
+        checksum/secret: 9a2d5ed0b3c03c5fe58bb223aa024f436f2bdaaafdb7736617b44296b22effe5
         kots.io/app-slug: default-kots-app-4
       labels:
         app: redis
