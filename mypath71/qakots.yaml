@@ -2,10 +2,10 @@ apiVersion: v1
 data:
   ENV_VAR_1: fake
   ENV_VAR_2: faker
-  RO_PASSWORD: 4I44ZM0Izbg4pNDR_fgOtTL5gBzRfcbWsUCZdV3M
-  RO_PASSWORD_D: RzDh25UShgTxLzPKXqHH_pv6QZ8L786Ko_yXLA20
+  RO_PASSWORD: WM9TwgtpSSQf7C0kQclLJqU5vu35y66V8cos6lwX
+  RO_PASSWORD_D: mhkuXYAFoZQIL8mx3Tlw5vWk8KulQSIdJTrWKpQ2
   RW_PASSWORD: DPlpAVCHmtJxZyYDW1Rs2jmjGd7CklVxewBl4cdC
-  RW_PASSWORD_D: vgy9h_SfJFYk4rtNiAXe8ZnC6U3ITJL9pOgXr_ip
+  RW_PASSWORD_D: iSxgyDeetw9OouX6BdxbneDUEyKVq_DkomxWcmHM
 kind: ConfigMap
 metadata:
   annotations:
@@ -241,7 +241,7 @@ spec:
         - name: DUMB_ENV_NAME
           value: "5"
         - name: DUMB_ENV_NAME_2
-          value: test
+          value: test2
         - name: DUMB_ENV_NAME_3
           value: "7"
         - name: DUMB_ENV_NAME_4
@@ -466,7 +466,7 @@ metadata:
     component: job-2
     kots.io/app-slug: qakots
     kots.io/backup: velero
-  name: job-2-b8yb1r
+  name: job-2-93nshk
 spec:
   backoffLimit: 1
   completions: 1
