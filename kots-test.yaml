@@ -47,7 +47,7 @@ spec:
     matchLabels:
       app: example
       component: nginx
-      for: diff2
+      for: diff
   template:
     metadata:
       annotations:
