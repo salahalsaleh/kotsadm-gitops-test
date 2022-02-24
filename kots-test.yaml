@@ -45,9 +45,9 @@ metadata:
 spec:
   selector:
     matchLabels:
-      again: for-diff
       app: example
       component: nginx
+      for: diff
   template:
     metadata:
       annotations:
