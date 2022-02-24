@@ -1,0 +1,73 @@
+apiVersion: v1
+data:
+  ENV_VAR_1: fake
+  ENV_VAR_2: faker
+  ENV_VAR_3: fakest
+kind: ConfigMap
+metadata:
+  annotations:
+    kots.io/app-slug: kots-test
+  labels:
+    kots.io/app-slug: kots-test
+    kots.io/backup: velero
+  name: example-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kots.io/app-slug: kots-test
+  labels:
+    app: example
+    component: nginx
+    kots.io/app-slug: kots-test
+    kots.io/backup: velero
+  name: example-nginx
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: example
+    component: nginx
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kots.io/app-slug: kots-test
+  labels:
+    app: example
+    component: nginx
+    kots.io/app-slug: kots-test
+    kots.io/backup: velero
+  name: example-nginx
+spec:
+  selector:
+    matchLabels:
+      app: example
+      component: nginx
+      for: diff
+  template:
+    metadata:
+      annotations:
+        kots.io/app-slug: kots-test
+      labels:
+        app: example
+        component: nginx
+        kots.io/app-slug: kots-test
+        kots.io/backup: velero
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: example-config
+        image: nginx
+        name: nginx
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 32Mi
